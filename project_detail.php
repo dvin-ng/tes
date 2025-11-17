@@ -24,15 +24,22 @@ if (!$project) {
  $stmt->execute([$project_id]);
  $project_members = $stmt->fetchAll();
 
-// Get project tasks
- $stmt = $pdo->prepare("SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.project_id = ? ORDER BY t.status, t.due_date");
+// PERBAIKAN: Get project tasks dengan semua nama assignee menggunakan GROUP_CONCAT
+ $stmt = $pdo->prepare("
+    SELECT 
+        t.*, 
+        p.name as project_name, 
+        GROUP_CONCAT(u.name SEPARATOR ', ') as assignee_names
+    FROM tasks t
+    LEFT JOIN projects p ON t.project_id = p.id
+    LEFT JOIN task_assignees ta ON t.id = ta.task_id
+    LEFT JOIN users u ON ta.user_id = u.id
+    WHERE t.project_id = ?
+    GROUP BY t.id
+    ORDER BY t.status, t.due_date
+");
  $stmt->execute([$project_id]);
  $tasks = $stmt->fetchAll();
-
-// Get project documents
- $stmt = $pdo->prepare("SELECT d.*, u.name as uploader_name FROM documents d LEFT JOIN users u ON d.uploaded_by_id = u.id WHERE d.project_id = ? ORDER BY d.uploaded_at DESC");
- $stmt->execute([$project_id]);
- $documents = $stmt->fetchAll();
 
 // Count tasks by status
  $task_counts = [
@@ -50,6 +57,11 @@ foreach ($tasks as $task) {
  $total_tasks = count($tasks);
  $completed_tasks = $task_counts['DONE'];
  $progress = $total_tasks > 0 ? round(($completed_tasks / $total_tasks) * 100) : 0;
+
+// Get project documents
+ $stmt = $pdo->prepare("SELECT d.*, u.name as uploader_name FROM documents d LEFT JOIN users u ON d.uploaded_by_id = u.id WHERE d.project_id = ? ORDER BY d.uploaded_at DESC");
+ $stmt->execute([$project_id]);
+ $documents = $stmt->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -94,7 +106,7 @@ foreach ($tasks as $task) {
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projects.php">
+                            <a class="nav-link active" href="projects.php">
                                 <i class="bi bi-folder me-2"></i> Proyek
                             </a>
                         </li>
@@ -259,7 +271,8 @@ foreach ($tasks as $task) {
                                                             <div class="card-body p-2">
                                                                 <h6 class="card-title mb-1"><?php echo $task['title']; ?></h6>
                                                                 <div class="d-flex justify-content-between align-items-center">
-                                                                    <small class="text-muted"><?php echo $task['assignee_name'] ?? 'Tidak ada'; ?></small>
+                                                                    <!-- PERBAIKAN: Tampilkan nama assignee yang sudah digabung -->
+                                                                    <small class="text-muted"><?php echo $task['assignee_names'] ?? 'Tidak ada'; ?></small>
                                                                     <span class="badge bg-<?php 
                                                                         echo match($task['priority']) {
                                                                             'LOW' => 'success',
@@ -292,7 +305,8 @@ foreach ($tasks as $task) {
                                                             <div class="card-body p-2">
                                                                 <h6 class="card-title mb-1"><?php echo $task['title']; ?></h6>
                                                                 <div class="d-flex justify-content-between align-items-center">
-                                                                    <small class="text-muted"><?php echo $task['assignee_name'] ?? 'Tidak ada'; ?></small>
+                                                                    <!-- PERBAIKAN: Tampilkan nama assignee yang sudah digabung -->
+                                                                    <small class="text-muted"><?php echo $task['assignee_names'] ?? 'Tidak ada'; ?></small>
                                                                     <span class="badge bg-<?php 
                                                                         echo match($task['priority']) {
                                                                             'LOW' => 'success',
@@ -325,7 +339,8 @@ foreach ($tasks as $task) {
                                                             <div class="card-body p-2">
                                                                 <h6 class="card-title mb-1"><?php echo $task['title']; ?></h6>
                                                                 <div class="d-flex justify-content-between align-items-center">
-                                                                    <small class="text-muted"><?php echo $task['assignee_name'] ?? 'Tidak ada'; ?></small>
+                                                                    <!-- PERBAIKAN: Tampilkan nama assignee yang sudah digabung -->
+                                                                    <small class="text-muted"><?php echo $task['assignee_names'] ?? 'Tidak ada'; ?></small>
                                                                     <span class="badge bg-<?php 
                                                                         echo match($task['priority']) {
                                                                             'LOW' => 'success',
@@ -358,7 +373,8 @@ foreach ($tasks as $task) {
                                                             <div class="card-body p-2">
                                                                 <h6 class="card-title mb-1"><?php echo $task['title']; ?></h6>
                                                                 <div class="d-flex justify-content-between align-items-center">
-                                                                    <small class="text-muted"><?php echo $task['assignee_name'] ?? 'Tidak ada'; ?></small>
+                                                                    <!-- PERBAIKAN: Tampilkan nama assignee yang sudah digabung -->
+                                                                    <small class="text-muted"><?php echo $task['assignee_names'] ?? 'Tidak ada'; ?></small>
                                                                     <span class="badge bg-<?php 
                                                                         echo match($task['priority']) {
                                                                             'LOW' => 'success',

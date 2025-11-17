@@ -18,8 +18,8 @@ require_once 'db_connect.php';
  $stmt = $pdo->query("SELECT p.*, u.name as manager_name FROM projects p LEFT JOIN users u ON p.manager_id = u.id ORDER BY p.created_at DESC LIMIT 5");
  $recent_projects = $stmt->fetchAll();
 
-// Get my tasks
- $stmt = $pdo->prepare("SELECT t.*, p.name as project_name FROM tasks t LEFT JOIN projects p ON t.project_id = p.id WHERE t.assignee_id = ? ORDER BY t.due_date ASC LIMIT 5");
+// PERBAIKAN: Get my tasks menggunakan tabel pivot task_assignees
+ $stmt = $pdo->prepare("SELECT t.*, p.name as project_name FROM tasks t LEFT JOIN task_assignees ta ON t.id = ta.task_id LEFT JOIN projects p ON t.project_id = p.id WHERE ta.user_id = ? ORDER BY t.due_date ASC LIMIT 5");
  $stmt->execute([$_SESSION['user_id']]);
  $my_tasks = $stmt->fetchAll();
 ?>
@@ -53,7 +53,7 @@ require_once 'db_connect.php';
                 <div class="position-sticky pt-3">
                     <div class="d-flex align-items-center mb-3">
                         <i class="bi bi-kanban fs-4 me-2"></i>
-                        <h5 class="mb-0">ProyekKu</h5>
+                        <h5 class="mb-0">WeProject</h5>
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">

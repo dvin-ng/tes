@@ -1,132 +1,134 @@
--- -----------------------------------------------------
--- Skrip SQL untuk Sistem Manajemen Proyek Kolaboratif
--- -----------------------------------------------------
+-- =================================================================
+-- SISTEM MANAJEMEN PROYEK KOLABORATIF: SKEMA DATABASE LENGKAP
+-- =================================================================
 
-CREATE DATABASE IF NOT EXISTS collaborative_pm DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE collaborative_pm;
+-- 1. Buat Database jika belum ada
+CREATE DATABASE IF NOT EXISTS project_management;
+USE project_management;
 
--- -----------------------------------------------------
--- Tabel users
--- -----------------------------------------------------
+-- =================================================================
+-- 2. Tabel-Tabel Utama
+-- =================================================================
+
+-- Tabel Users (Menyimpan data pengguna)
 CREATE TABLE users (
-  id INT(11) NOT NULL AUTO_INCREMENT,
-  name VARCHAR(100) NOT NULL,
-  email VARCHAR(100) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  role ENUM('ADMIN', 'MANAGER', 'MEMBER') NOT NULL DEFAULT 'MEMBER',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('ADMIN', 'MANAGER', 'MEMBER') NOT NULL DEFAULT 'MEMBER',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- -----------------------------------------------------
--- Tabel teams
--- -----------------------------------------------------
-CREATE TABLE teams (
-  id INT(11) NOT NULL AUTO_INCREMENT,
-  name VARCHAR(100) NOT NULL,
-  description TEXT,
-  team_head_id INT(11) NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  FOREIGN KEY (team_head_id) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------
--- Tabel team_members (Pivot)
--- -----------------------------------------------------
-CREATE TABLE team_members (
-  team_id INT(11) NOT NULL,
-  user_id INT(11) NOT NULL,
-  PRIMARY KEY (team_id, user_id),
-  FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------
--- Tabel projects
--- -----------------------------------------------------
+-- Tabel Projects (Menyimpan data proyek)
 CREATE TABLE projects (
-  id INT(11) NOT NULL AUTO_INCREMENT,
-  name VARCHAR(150) NOT NULL,
-  description TEXT,
-  start_date DATE NULL,
-  end_date DATE NULL,
-  status ENUM('PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED') NOT NULL DEFAULT 'PLANNING',
-  priority ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') NOT NULL DEFAULT 'MEDIUM',
-  manager_id INT(11) NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    start_date DATE,
+    end_date DATE,
+    status ENUM('PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED') NOT NULL DEFAULT 'PLANNING',
+    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') NOT NULL DEFAULT 'MEDIUM',
+    manager_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL
+);
 
--- -----------------------------------------------------
--- Tabel project_members (Pivot)
--- -----------------------------------------------------
-CREATE TABLE project_members (
-  project_id INT(11) NOT NULL,
-  user_id INT(11) NOT NULL,
-  PRIMARY KEY (project_id, user_id),
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------
--- Tabel tasks
--- -----------------------------------------------------
+-- Tabel Tasks (Menyimpan data tugas)
 CREATE TABLE tasks (
-  id INT(11) NOT NULL AUTO_INCREMENT,
-  title VARCHAR(200) NOT NULL,
-  description TEXT,
-  priority ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') NOT NULL DEFAULT 'MEDIUM',
-  status ENUM('TO_DO', 'IN_PROGRESS', 'REVIEW', 'DONE') NOT NULL DEFAULT 'TO_DO',
-  due_date DATETIME NULL,
-  estimated_hours DECIMAL(5,2) NULL,
-  project_id INT(11) NOT NULL,
-  assignee_id INT(11) NULL,
-  created_by_id INT(11) NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    description TEXT,
+    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') NOT NULL DEFAULT 'MEDIUM',
+    status ENUM('TO_DO', 'IN_PROGRESS', 'REVIEW', 'DONE') NOT NULL DEFAULT 'TO_DO',
+    due_date DATETIME,
+    estimated_hours DECIMAL(5,2),
+    actual_hours DECIMAL(5,2),
+    project_id INT,
+    created_by_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL
+    -- NOTE: Kolom 'assignee_id' lama dihapus karena digantikan dengan tabel pivot
+);
 
--- -----------------------------------------------------
--- Tabel comments
--- -----------------------------------------------------
-CREATE TABLE comments (
-  id INT(11) NOT NULL AUTO_INCREMENT,
-  content TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  author_id INT(11) NOT NULL,
-  task_id INT(11) NOT NULL,
-  PRIMARY KEY (id),
-  FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------
--- Tabel documents
--- -----------------------------------------------------
+-- Tabel Documents (Menyimpan data dokumen)
 CREATE TABLE documents (
-  id INT(11) NOT NULL AUTO_INCREMENT,
-  title VARCHAR(200) NOT NULL,
-  description TEXT,
-  file_path VARCHAR(255) NOT NULL,
-  version VARCHAR(20) NOT NULL DEFAULT '1.0',
-  category ENUM('DESIGN', 'DOCUMENT', 'REPORT', 'OTHER') NOT NULL DEFAULT 'OTHER',
-  uploaded_by_id INT(11) NOT NULL,
-  project_id INT(11) NULL,
-  task_id INT(11) NULL,
-  uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  FOREIGN KEY (uploaded_by_id) REFERENCES users(id) ON DELETE RESTRICT,
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    description TEXT,
+    file_path VARCHAR(255) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_size INT,
+    file_type VARCHAR(50),
+    version VARCHAR(20) DEFAULT '1.0',
+    category VARCHAR(50),
+    uploaded_by_id INT,
+    project_id INT,
+    task_id INT,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
 
+-- Tabel Teams (Menyimpan data tim/departemen)
+CREATE TABLE teams (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    team_head_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (team_head_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Tabel Comments (Menyimpan data komentar pada tugas)
+CREATE TABLE comments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    author_id INT,
+    task_id INT,
+    -- Kolom tambahan untuk fitur komentar yang diperluas
+    type ENUM('Pertanyaan', 'Saran', 'Laporan Bug', 'Blocker') NOT NULL DEFAULT 'Pertanyaan',
+    privacy ENUM('ALL_MEMBERS', 'MANAGER_AND_ME') NOT NULL DEFAULT 'ALL_MEMBERS',
+    file_path VARCHAR(255) NULL,
+    file_name VARCHAR(255) NULL,
+    file_size INT NULL,
+    file_type VARCHAR(50) NULL,
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+
+-- =================================================================
+-- 3. Tabel Pivot (Hubungan Many-to-Many)
+-- =================================================================
+
+-- Tabel Pivot untuk relasi Many-to-Many antara Proyek dan Anggota
+CREATE TABLE project_members (
+    project_id INT,
+    user_id INT,
+    role_in_project ENUM('LEADER', 'CONTRIBUTOR', 'VIEWER') NOT NULL DEFAULT 'CONTRIBUTOR',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (project_id, user_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Tabel Pivot untuk relasi Many-to-Many antara Tim dan Anggota
+CREATE TABLE team_members (
+    team_id INT,
+    user_id INT,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (team_id, user_id),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Tabel Pivot untuk relasi Many-to-Many antara Tugas dan Penanggung Jawab (Users)
 CREATE TABLE task_assignees (
     task_id INT,
     user_id INT,
@@ -135,32 +137,10 @@ CREATE TABLE task_assignees (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-
-
-ALTER TABLE comments
-ADD COLUMN type ENUM('Pertanyaan', 'Saran', 'Laporan Bug', 'Blocker') NOT NULL DEFAULT 'Pertanyaan' AFTER content,
-ADD COLUMN privacy ENUM('ALL_MEMBERS', 'MANAGER_AND_ME') NOT NULL DEFAULT 'ALL_MEMBERS' AFTER type,
-ADD COLUMN file_path VARCHAR(255) NULL AFTER privacy,
-ADD COLUMN file_name VARCHAR(255) NULL AFTER file_path,
-ADD COLUMN file_size INT NULL AFTER file_name,
-ADD COLUMN file_type VARCHAR(50) NULL AFTER file_size;
+ALTER TABLE teams
+ADD COLUMN logo_path VARCHAR(255) NULL AFTER description;
 
 
 
-
-
--- Tambahkan data pengguna awal untuk testing
--- Password untuk semua adalah 'password'
-
-INSERT INTO `users` (`name`, `email`, `password_hash`, `role`) VALUES
-('Admin System', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ADMIN'),
-('Project Manager', 'manager@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'MANAGER'),
-('Regular Member', 'member@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'MEMBER');
-
-
-
-
--- ALTER TABLE comments ADD COLUMN type ENUM('Pertanyaan', 'Saran', 'Laporan Bug', 'Blocker') DEFAULT 'Pertanyaan' AFTER content;
--- ALTER TABLE comments ADD COLUMN privacy ENUM('Semua Anggota Tim', 'Hanya Manajer & Saya') DEFAULT 'Semua Anggota Tim' AFTER type;
--- ALTER TABLE comments ADD COLUMN file_path VARCHAR(255) NULL AFTER privacy;
--- ALTER TABLE comments ADD COLUMN file_name VARCHAR(255) NULL AFTER file_path;
+INSERT INTO users (name, email, password_hash, role) VALUES 
+('Admin User', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ADMIN');

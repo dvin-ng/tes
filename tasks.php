@@ -2,15 +2,27 @@
 require_once 'auth_check.php';
 require_once 'db_connect.php';
 
-// Get tasks with project and assignee info
- $stmt = $pdo->query("SELECT t.*, p.name as project_name, u.name as assignee_name FROM tasks t LEFT JOIN projects p ON t.project_id = p.id LEFT JOIN users u ON t.assignee_id = u.id ORDER BY t.due_date ASC");
+// PERBAIKAN: Query untuk mendapatkan tugas dengan semua nama assignee menggunakan GROUP_CONCAT
+ $stmt = $pdo->query("
+    SELECT 
+        t.*, 
+        p.name as project_name, 
+        GROUP_CONCAT(u.name SEPARATOR ', ') as assignee_names,
+        GROUP_CONCAT(u.id SEPARATOR ',') as assignee_ids
+    FROM tasks t
+    LEFT JOIN projects p ON t.project_id = p.id
+    LEFT JOIN task_assignees ta ON t.id = ta.task_id
+    LEFT JOIN users u ON ta.user_id = u.id
+    GROUP BY t.id
+    ORDER BY t.due_date ASC
+");
  $tasks = $stmt->fetchAll();
 
-// Get projects for filter
+// Get projects for filter dropdown
  $stmt = $pdo->query("SELECT id, name FROM projects ORDER BY name");
  $projects = $stmt->fetchAll();
 
-// Get users for filter
+// Get users for assignee filter dropdown
  $stmt = $pdo->query("SELECT id, name FROM users ORDER BY name");
  $users = $stmt->fetchAll();
 ?>
@@ -26,8 +38,8 @@ require_once 'db_connect.php';
     <style>
         .sidebar {
             min-height: 100vh;
-            background-color: #f8f9fa
-                    }
+            background-color: #f8f9fa;
+        }
         .task-card {
             transition: transform 0.3s;
         }
@@ -158,10 +170,14 @@ require_once 'db_connect.php';
                                     </thead>
                                     <tbody id="tasksTableBody">
                                         <?php foreach ($tasks as $task): ?>
-                                        <tr data-project-id="<?php echo $task['project_id']; ?>" data-assignee-id="<?php echo $task['assignee_id']; ?>" data-status="<?php echo $task['status']; ?>">
+                                        <tr 
+                                            data-project-id="<?php echo $task['project_id']; ?>" 
+                                            data-assignee-ids="<?php echo htmlspecialchars($task['assignee_ids'] ?? ''); ?>" 
+                                            data-status="<?php echo $task['status']; ?>">
                                             <td><a href="task_detail.php?id=<?php echo $task['id']; ?>"><?php echo $task['title']; ?></a></td>
                                             <td><a href="project_detail.php?id=<?php echo $task['project_id']; ?>"><?php echo $task['project_name']; ?></a></td>
-                                            <td><?php echo $task['assignee_name'] ?? 'Tidak ada'; ?></td>
+                                            <!-- PERBAIKAN: Tampilkan nama assignee yang sudah digabung -->
+                                            <td><?php echo $task['assignee_names'] ?: 'Tidak ada'; ?></td>
                                             <td>
                                                 <span class="badge bg-<?php 
                                                     echo match($task['priority']) {
@@ -257,12 +273,13 @@ require_once 'db_connect.php';
                 
                 taskRows.forEach(row => {
                     const projectId = row.getAttribute('data-project-id');
-                    const assigneeId = row.getAttribute('data-assignee-id');
                     const status = row.getAttribute('data-status');
+                    const assigneeIds = row.getAttribute('data-assignee-ids').split(',').filter(id => id.trim() !== '');
                     
                     const projectMatch = projectValue === '' || projectId === projectValue;
-                    const assigneeMatch = assigneeValue === '' || assigneeId === assigneeValue;
                     const statusMatch = statusValue === '' || status === statusValue;
+                    // PERBAIKAN: Logika filter untuk multi-assignee
+                    const assigneeMatch = assigneeValue === '' || assigneeIds.includes(assigneeValue);
                     
                     if (projectMatch && assigneeMatch && statusMatch) {
                         row.style.display = '';
