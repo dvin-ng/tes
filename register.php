@@ -9,7 +9,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
-    $role = $_POST['role'];
     
     if ($password != $confirm_password) {
         $error = "Password tidak cocok!";
@@ -21,13 +20,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($stmt->fetch()) {
             $error = "Email sudah digunakan!";
         } else {
-            $password_hash = password_hash($password, PASSWORD_DEFAULT);
-            
-            $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$name, $email, $password_hash, $role]);
-            
-            header("Location: login.php?registered=1");
-            exit;
+            // --- PERUBAHAN: Gunakan Transaksi untuk Integritas Data ---
+            try {
+                $pdo->beginTransaction();
+
+                // 1. Buat user baru (role akan otomatis 'MEMBER' dari default database)
+                $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)");
+                $stmt->execute([$name, $email, $password_hash]);
+                
+                // Dapatkan ID user yang baru dibuat
+                $new_user_id = $pdo->lastInsertId();
+                
+                // --- LOGIKA BARU: Cari atau Buat Tim Default ---
+                $default_team_name = 'Anggota Umum';
+                $team_id = null;
+                
+                // Cari apakah tim default sudah ada
+                $stmt = $pdo->prepare("SELECT id FROM teams WHERE name = ?");
+                $stmt->execute([$default_team_name]);
+                $team = $stmt->fetch();
+                
+                if ($team) {
+                    // Jika tim sudah ada, gunakan ID-nya
+                    $team_id = $team['id'];
+                } else {
+                    // Jika tim belum ada, buat tim baru
+                    $stmt = $pdo->prepare("INSERT INTO teams (name, description) VALUES (?, ?)");
+                    $stmt->execute([$default_team_name, 'Tim untuk seluruh anggota baru yang mendaftar.']);
+                    $team_id = $pdo->lastInsertId();
+                }
+                
+                // 2. Tambahkan user baru sebagai anggota tim default
+                $stmt = $pdo->prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)");
+                $stmt->execute([$team_id, $new_user_id]);
+                
+                // Jika semua berhasil, komit transaksi
+                $pdo->commit();
+                
+                // Alihkan ke halaman login dengan pesan sukses
+                header("Location: login.php?registered=1");
+                exit;
+
+            } catch (Exception $e) {
+                // Jika ada error, rollback transaksi dan tampilkan error
+                $pdo->rollBack();
+                $error = "Terjadi kesalahan saat mendaftar. Silakan coba lagi. Error: " . $e->getMessage();
+            }
         }
     }
 }
@@ -49,7 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             justify-content: center;
         }
         .register-container {
-            max-width: 500px;
+            max-width: 400px;
             width: 100%;
             padding: 30px;
             background-color: white;
@@ -60,7 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </head>
 <body>
     <div class="register-container">
-        <h2 class="text-center mb-4">Register</h2>
+        <h2 class="text-center mb-4">Daftar Akun Baru</h2>
         <?php if (!empty($error)): ?>
             <div class="alert alert-danger"><?php echo $error; ?></div>
         <?php endif; ?>
@@ -81,14 +120,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <label for="confirm_password" class="form-label">Konfirmasi Password</label>
                 <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
             </div>
-            <div class="mb-3">
-                <label for="role" class="form-label">Peran</label>
-                <select class="form-select" id="role" name="role" required>
-                    <option value="MEMBER">Anggota</option>
-                    <option value="MANAGER">Manajer</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Register</button>
+            <!-- --- PERUBAHAN: Hapus Bagian Pilihan Peran --- -->
+            <!-- Bagian ini dihapus karena peran otomatis 'MEMBER' -->
+            <button type="submit" class="btn btn-primary w-100">Daftar</button>
         </form>
         <div class="text-center mt-3">
             <p>Sudah punya akun? <a href="login.php">Login</a></p>
